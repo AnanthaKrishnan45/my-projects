@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataSheet Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-section:hover {
+            transform: translateY(-5px);
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            background: linear-gradient(45deg, #f8f9ff, #fff);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: linear-gradient(45deg, #f0f2ff, #fff);
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: linear-gradient(45deg, #f0fff0, #fff);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .visualization-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .data-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .summary-card h3 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .summary-card p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .control-group select {
+            padding: 10px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            background: white;
+            font-size: 1rem;
+            min-width: 150px;
+            transition: border-color 0.3s ease;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .chart-container {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #333;
+        }
+
+        .data-table {
+            margin-top: 30px;
+        }
+
+        .data-table h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f0f2ff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .upload-section {
+                padding: 20px;
+            }
+            
+            .upload-area {
+                padding: 40px 20px;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 DataSheet Visualizer</h1>
+            <p>Upload your CSV or Excel files and get beautiful charts instantly</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drag & drop your datasheet here</div>
+                <div style="margin: 20px 0; color: #999;">or</div>
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose File
+                </button>
+                <input type="file" id="fileInput" class="file-input" accept=".csv,.xlsx,.xls">
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                    Supports CSV, Excel (.xlsx, .xls) files
+                </div>
+            </div>
+        </div>
+
+        <div class="visualization-section" id="visualizationSection">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Processing your data...</div>
+            </div>
+
+            <div id="content" style="display: none;">
+                <div class="data-summary" id="dataSummary"></div>
+                
+                <div class="chart-controls" id="chartControls"></div>
+                
+                <div class="charts-grid" id="chartsGrid"></div>
+                
+                <div class="data-table" id="dataTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let charts = {};
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            
+            document.getElementById('visualizationSection').style.display = 'block';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('content').style.display = 'none';
+
+            setTimeout(() => {
+                if (fileExtension === 'csv') {
+                    parseCSV(file);
+                } else if (['xlsx', 'xls'].includes(fileExtension)) {
+                    parseExcel(file);
+                } else {
+                    showError('Unsupported file format. Please upload CSV or Excel files.');
+                }
+            }, 500);
+        }
+
+        function parseCSV(file) {
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        showError('Error parsing CSV: ' + results.errors[0].message);
+                        return;
+                    }
+                    processData(results.data, file.name);
+                }
+            });
+        }
+
+        function parseExcel(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    if (data.length === 0) {
+                        showError('The Excel file appears to be empty.');
+                        return;
+                    }
+
+                    // Convert to object format
+                    const headers = data[0];
+                    const rows = data.slice(1).map(row => {
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            obj[header] = row[index];
+                        });
+                        return obj;
+                    });
+
+                    processData(rows, file.name);
+                } catch (error) {
+                    showError('Error parsing Excel file: ' + error.message);
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function processData(data, filename) {
+            currentData = data.filter(row => Object.values(row).some(val => val !== null && val !== undefined && val !== ''));
+            
+            if (currentData.length === 0) {
+                showError('No valid data found in the file.');
+                return;
+            }
+
+            displayDataSummary(filename);
+            createChartControls();
+            generateDefaultCharts();
+            displayDataTable();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+        }
+
+        function displayDataSummary(filename) {
+            const summaryDiv = document.getElementById('dataSummary');
+            const numericColumns = getNumericColumns();
+            const totalRows = currentData.length;
+            const totalColumns = Object.keys(currentData[0]).length;
+
+            summaryDiv.innerHTML = `
+                <div class="summary-card">
+                    <h3>${totalRows}</h3>
+                    <p>Total Rows</p>
+                </div>
+                <div class="summary-card">
+                    <h3>${totalColumns}</h3>
+                    <p>Total Columns</p>
+                </div>
+                <div class="summary-card">
+                    <h3>${numericColumns.length}</h3>
+                    <p>Numeric Columns</p>
+                </div>
+                <div class="summary-card">
+                    <h3>${filename}</h3>
+                    <p>File Name</p>
+                </div>
+            `;
+        }
+
+        function getNumericColumns() {
+            if (!currentData || currentData.length === 0) return [];
+            
+            const columns = Object.keys(currentData[0]);
+            return columns.filter(col => {
+                return currentData.some(row => {
+                    const val = row[col];
+                    return typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val));
+                });
+            });
+        }
+
+        function getAllColumns() {
+            if (!currentData || currentData.length === 0) return [];
+            return Object.keys(currentData[0]);
+        }
+
+        function createChartControls() {
+            const controlsDiv = document.getElementById('chartControls');
+            const numericColumns = getNumericColumns();
+            const allColumns = getAllColumns();
+
+            if (numericColumns.length === 0) {
+                controlsDiv.innerHTML = '<p style="text-align: center; color: #666;">No numeric columns found for visualization.</p>';
+                return;
+            }
+
+            controlsDiv.innerHTML = `
+                <div class="control-group">
+                    <label>Chart Type</label>
+                    <select id="chartType" onchange="updateCharts()">
+                        <option value="bar">Bar Chart</option>
+                        <option value="line">Line Chart</option>
+                        <option value="pie">Pie Chart</option>
+                        <option value="doughnut">Doughnut Chart</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>X-Axis</label>
+                    <select id="xAxis" onchange="updateCharts()">
+                        ${allColumns.map(col => `<option value="${col}">${col}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Y-Axis</label>
+                    <select id="yAxis" onchange="updateCharts()">
+                        ${numericColumns.map(col => `<option value="${col}">${col}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        function generateDefaultCharts() {
+            const numericColumns = getNumericColumns();
+            if (numericColumns.length === 0) return;
+
+            const chartsDiv = document.getElementById('chartsGrid');
+            chartsDiv.innerHTML = '';
+
+            // Create multiple chart types
+            const chartTypes = ['bar', 'line', 'pie'];
+            chartTypes.forEach((type, index) => {
+                if (index < numericColumns.length) {
+                    createChart(type, getAllColumns()[0], numericColumns[index], `chart${index}`);
+                }
+            });
+        }
+
+        function updateCharts() {
+            const chartType = document.getElementById('chartType').value;
+            const xAxis = document.getElementById('xAxis').value;
+            const yAxis = document.getElementById('yAxis').value;
+
+            const chartsDiv = document.getElementById('chartsGrid');
+            chartsDiv.innerHTML = '';
+
+            createChart(chartType, xAxis, yAxis, 'mainChart');
+        }
+
+        function createChart(type, xCol, yCol, chartId) {
+            const chartsDiv = document.getElementById('chartsGrid');
+            
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container';
+            chartContainer.innerHTML = `
+                <div class="chart-title">${type.charAt(0).toUpperCase() + type.slice(1)} Chart: ${yCol} vs ${xCol}</div>
+                <canvas id="${chartId}" width="400" height="300"></canvas>
+            `;
+            chartsDiv.appendChild(chartContainer);
+
+            // Prepare data
+            const labels = [];
+            const data = [];
+            const backgroundColors = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+            ];
+
+            // Group data if needed
+            if (type === 'pie' || type === 'doughnut') {
+                const groupedData = {};
+                currentData.forEach(row => {
+                    const key = row[xCol];
+                    const value = parseFloat(row[yCol]) || 0;
+                    groupedData[key] = (groupedData[key] || 0) + value;
+                });
+
+                Object.entries(groupedData).forEach(([key, value]) => {
+                    labels.push(key);
+                    data.push(value);
+                });
+            } else {
+                currentData.slice(0, 20).forEach(row => { // Limit to 20 points for readability
+                    labels.push(row[xCol]);
+                    data.push(parseFloat(row[yCol]) || 0);
+                });
+            }
+
+            // Create chart
+            const ctx = document.getElementById(chartId).getContext('2d');
+            
+            if (charts[chartId]) {
+                charts[chartId].destroy();
+            }
+
+            charts[chartId] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: yCol,
+                        data: data,
+                        backgroundColor: type === 'pie' || type === 'doughnut' ? backgroundColors : backgroundColors[0],
+                        borderColor: type === 'pie' || type === 'doughnut' ? backgroundColors : backgroundColors[0],
+                        borderWidth: 2,
+                        tension: type === 'line' ? 0.4 : 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: type === 'pie' || type === 'doughnut',
+                            position: 'right'
+                        }
+                    },
+                    scales: type === 'pie' || type === 'doughnut' ? {} : {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayDataTable() {
+            const tableDiv = document.getElementById('dataTable');
+            if (!currentData || currentData.length === 0) return;
+
+            const columns = Object.keys(currentData[0]);
+            const maxRows = Math.min(currentData.length, 100); // Show max 100 rows
+
+            let tableHTML = `
+                <h3>Data Preview (${maxRows} of ${currentData.length} rows)</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                ${columns.map(col => `<th>${col}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentData.slice(0, maxRows).map(row => `
+                                <tr>
+                                    ${columns.map(col => `<td>${row[col] || ''}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            tableDiv.innerHTML = tableHTML;
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').innerHTML = `
+                <div class="error">
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+            document.getElementById('content').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
